@@ -10,6 +10,7 @@ Wszystko w czystym Pythonie (bez `pip install`), AI tylko lokalnie przez Ollamę
 | `tars_memory/` | Pamięć: wrzucasz dowolny plik → AI sama go segreguje do folderów (albo tworzy nowy), cofanie, lepsze sortowanie |
 | `tars_zrobsite/` + `wordpress/tars-bridge/` | Zakładka **Statusy i analityka**: stan stron klientów (aktualizacje, SSL, błędy), wizyty bez cookies, zgody cookies |
 | `tars_telegram/` | Ładniejsze wiadomości bota (karty, statusy, paski postępu, menu, sortowanie) + **Mini App** z panelem TARS i ZrobSite |
+| `tars_seo/` | Prosty audyt SEO: ocena 0–100 i A–F, „Top 3 do poprawy” po ludzku, porównanie z konkurencją, historia zmian, propozycje tytułów/opisów od AI |
 | `narzedzia/sprawdz-ollame.ps1` | Sprawdza Ollamę i dociąga brakujące modele Qwen na dysk F |
 
 ## Modele
@@ -61,7 +62,16 @@ W panelu: `sort_inbox(inbox, root)` po wrzuceniu pliku, `list_items(root, sort=.
 2. Ustawienia → TARS Bridge → skopiuj gotowy wpis do `sites.json` (wzór: `tars_zrobsite/sites.example.json`). Plik `sites.json` zawiera klucze — jest w `.gitignore`.
 3. Podgląd: `python -m tars_zrobsite --html statusy.html`. W panelu: `build_dashboard(...)` + `render_html(...)`, w Telegramie: `render_telegram(...)`.
 
-**4. Telegram.** Wiadomości wysyłaj z `parse_mode="HTML"` i klockami z `tars_telegram`
+**4. SEO.**
+
+```powershell
+python -m tars_seo audit https://strona-klienta.pl --html raport.html --save
+python -m tars_seo audit https://strona-klienta.pl --ai          # + propozycje tytułów i opisów
+python -m tars_seo compare https://strona-klienta.pl https://konkurencja.pl
+python -m tars_seo trend https://strona-klienta.pl               # co się poprawiło od ostatniego razu
+```
+
+**5. Telegram.** Wiadomości wysyłaj z `parse_mode="HTML"` i klockami z `tars_telegram`
 (`card`, `tpl_ai_answer`, `md_to_tg_html`, `chunk_message`, `main_menu`, `sort_menu`).
 Mini App: instrukcja w `tars_telegram/miniapp/README.md`.
 
