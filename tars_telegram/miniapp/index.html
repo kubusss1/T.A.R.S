@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="referrer" content="no-referrer">
+<title>TARS</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  :root {
+    --bg: var(--tg-theme-bg-color, #ffffff);
+    --bg2: var(--tg-theme-secondary-bg-color, #f1f2f4);
+    --text: var(--tg-theme-text-color, #111317);
+    --hint: var(--tg-theme-hint-color, #8b909a);
+    --link: var(--tg-theme-link-color, #2b7de9);
+    --accent: var(--tg-theme-button-color, #2b7de9);
+    --accent-text: var(--tg-theme-button-text-color, #ffffff);
+    --sep: var(--tg-theme-section-separator-color, rgba(127, 127, 127, .18));
+    --thumb: var(--tg-theme-bg-color, #ffffff);
+    --safe-top: max(env(safe-area-inset-top, 0px), calc(var(--tg-safe-area-inset-top, 0px) + var(--tg-content-safe-area-inset-top, 0px)));
+    --safe-bottom: max(env(safe-area-inset-bottom, 0px), var(--tg-safe-area-inset-bottom, 0px));
+    --safe-left: max(env(safe-area-inset-left, 0px), var(--tg-safe-area-inset-left, 0px));
+    --safe-right: max(env(safe-area-inset-right, 0px), var(--tg-safe-area-inset-right, 0px));
+    --radius: 12px;
+    --ease: cubic-bezier(.2, .8, .2, 1);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: var(--tg-theme-bg-color, #17181b);
+      --bg2: var(--tg-theme-secondary-bg-color, #0f1012);
+      --text: var(--tg-theme-text-color, #eceef1);
+      --hint: var(--tg-theme-hint-color, #7d828c);
+      --link: var(--tg-theme-link-color, #62a8ff);
+      --accent: var(--tg-theme-button-color, #3b8cf0);
+      --thumb: var(--tg-theme-bg-color, #26282d);
+    }
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); }
+  body {
+    font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    overflow: hidden; overscroll-behavior: none; -webkit-font-smoothing: antialiased;
+  }
+  button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+  .app {
+    height: var(--tg-viewport-stable-height, 100dvh);
+    min-height: 100%;
+    display: flex; flex-direction: column;
+    padding-left: var(--safe-left); padding-right: var(--safe-right);
+  }
+
+  /* Pasek górny */
+  .bar {
+    flex: none; display: flex; align-items: center; gap: 8px;
+    padding: calc(var(--safe-top) + 8px) 10px 8px;
+    background: var(--bg); border-bottom: 1px solid var(--sep);
+  }
+  .seg {
+    position: relative; flex: 1; display: grid; grid-template-columns: 1fr 1fr;
+    padding: 2px; border-radius: 10px; background: var(--bg2); isolation: isolate;
+  }
+  .seg-thumb {
+    position: absolute; z-index: -1; top: 2px; bottom: 2px; left: 2px; width: calc(50% - 2px);
+    border-radius: 8px; background: var(--thumb);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .12), 0 0 0 .5px rgba(0, 0, 0, .04);
+    transition: transform .28s var(--ease);
+  }
+  .seg[data-active="zrobsite"] .seg-thumb { transform: translateX(100%); }
+  .seg-btn {
+    height: 32px; border-radius: 8px; font-weight: 500; font-size: 14px;
+    color: var(--hint); transition: color .2s;
+  }
+  .seg-btn[aria-selected="true"] { color: var(--text); font-weight: 600; }
+  .icon-btn {
+    flex: none; width: 36px; height: 36px; display: grid; place-items: center;
+    border-radius: 10px; color: var(--hint); transition: background .15s, color .15s;
+  }
+  .icon-btn:active { background: var(--bg2); color: var(--text); }
+  .icon-btn[disabled] { opacity: .35; pointer-events: none; }
+  .icon-btn svg { width: 19px; height: 19px; }
+
+  /* Scena z panelami */
+  .stage { position: relative; flex: 1; min-height: 0; background: var(--bg); }
+  .pane { position: absolute; inset: 0; display: none; }
+  .pane.on { display: block; }
+  .pane iframe {
+    position: absolute; inset: 0; width: 100%; height: 100%; border: 0;
+    background: var(--bg); opacity: 0; transition: opacity .25s;
+  }
+  .pane.loaded iframe { opacity: 1; }
+
+  /* Szkielet ładowania */
+  .skeleton { position: absolute; inset: 0; padding: 18px 16px; pointer-events: none; transition: opacity .25s; }
+  .pane.loaded .skeleton { opacity: 0; }
+  .sk { height: 14px; border-radius: 7px; margin-bottom: 12px; background: var(--bg2); position: relative; overflow: hidden; }
+  .sk::after {
+    content: ""; position: absolute; inset: 0; transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, rgba(127, 127, 127, .12), transparent);
+    animation: shimmer 1.3s infinite;
+  }
+  .sk.h { height: 22px; width: 45%; margin-bottom: 22px; }
+  .sk.card { height: 84px; border-radius: var(--radius); margin: 18px 0; }
+  .sk.w80 { width: 80%; } .sk.w60 { width: 60%; } .sk.w90 { width: 90%; }
+  @keyframes shimmer { to { transform: translateX(100%); } }
+
+  /* Podpowiedź przy wolnym ładowaniu / blokadzie ramki */
+  .toast {
+    position: absolute; left: 12px; right: 12px; bottom: calc(var(--safe-bottom) + 12px);
+    display: none; align-items: center; gap: 12px; padding: 12px 14px;
+    border-radius: var(--radius); background: var(--bg2); color: var(--text);
+    box-shadow: 0 6px 24px rgba(0, 0, 0, .12); font-size: 13.5px;
+    animation: rise .3s var(--ease);
+  }
+  .pane.slow .toast { display: flex; }
+  .toast p { margin: 0; flex: 1; color: var(--hint); }
+  .toast .x { color: var(--hint); font-size: 18px; line-height: 1; padding: 4px; }
+  @keyframes rise { from { transform: translateY(8px); opacity: 0; } }
+
+  /* Pusty stan */
+  .empty {
+    position: absolute; inset: 0; overflow-y: auto; -webkit-overflow-scrolling: touch;
+    display: flex; flex-direction: column; justify-content: center;
+    padding: 24px 22px calc(var(--safe-bottom) + 24px); max-width: 520px; margin: 0 auto;
+  }
+  .empty .glyph {
+    width: 52px; height: 52px; border-radius: 16px; display: grid; place-items: center;
+    background: var(--bg2); font-size: 26px; margin-bottom: 18px;
+  }
+  .empty h1 { font-size: 20px; line-height: 1.25; margin: 0 0 8px; font-weight: 650; letter-spacing: -.01em; }
+  .empty p { margin: 0 0 14px; color: var(--hint); }
+  .empty ol { margin: 4px 0 18px; padding-left: 20px; color: var(--hint); }
+  .empty li { margin-bottom: 8px; }
+  .empty li b { color: var(--text); font-weight: 600; }
+  .empty code {
+    display: block; margin-top: 6px; padding: 10px 12px; border-radius: 10px; background: var(--bg2);
+    color: var(--text); font: 12.5px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    word-break: break-all; user-select: all;
+  }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    height: 44px; padding: 0 18px; border-radius: var(--radius);
+    background: var(--accent); color: var(--accent-text); font-weight: 600;
+    transition: transform .12s, opacity .12s;
+  }
+  .btn:active { transform: scale(.98); opacity: .9; }
+  .btn.ghost { background: transparent; color: var(--link); height: auto; padding: 6px 0; font-weight: 500; }
+  .toast .btn { height: 34px; padding: 0 12px; font-size: 13px; border-radius: 9px; flex: none; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="bar">
+    <div class="seg" id="seg" role="tablist" aria-label="Panel" data-active="tars">
+      <span class="seg-thumb" aria-hidden="true"></span>
+      <button class="seg-btn" role="tab" data-tab="tars" aria-selected="true">TARS</button>
+      <button class="seg-btn" role="tab" data-tab="zrobsite" aria-selected="false">ZrobSite</button>
+    </div>
+    <button class="icon-btn" id="reload" aria-label="Odśwież panel" title="Odśwież">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>
+    </button>
+    <button class="icon-btn" id="open" aria-label="Otwórz w przeglądarce" title="Otwórz w przeglądarce">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6"/><path d="M20 4 11 13"/><path d="M19 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"/></svg>
+    </button>
+  </header>
+  <main class="stage" id="stage"></main>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // Serwer (server.py) może tu wstawić domyślne adresy z env; parametry w linku wygrywają.
+  var SERVER_CONFIG = /*__TARS_CONFIG__*/null;
+
+  var TABS = {
+    tars: { label: "TARS", glyph: "🤖", param: "tars" },
+    zrobsite: { label: "ZrobSite", glyph: "🌐", param: "zrobsite" }
+  };
+  // Tylko własne klucze: start_param/?tab= to dane z zewnątrz ("constructor", "__proto__"…).
+  function isTab(t) { return typeof t === "string" && Object.prototype.hasOwnProperty.call(TABS, t); }
+  var STORAGE_KEY = "tars.miniapp.tab";
+  var SLOW_MS = 8000;
+
+  var tg = (window.Telegram && window.Telegram.WebApp) || null;
+  function supports(v) { try { return !!(tg && tg.isVersionAtLeast && tg.isVersionAtLeast(v)); } catch (e) { return false; } }
+
+  // ---------- Telegram ----------
+  if (tg) {
+    try { tg.ready(); } catch (e) {}
+    try { tg.expand(); } catch (e) {}
+    if (supports("7.7")) { try { tg.disableVerticalSwipes(); } catch (e) {} }
+    if (supports("6.1")) {
+      try { tg.setHeaderColor("bg_color"); tg.setBackgroundColor("bg_color"); } catch (e) {}
+    }
+  }
+
+  function haptic(kind) {
+    if (!tg || !supports("6.1") || !tg.HapticFeedback) return;
+    try {
+      if (kind === "select") tg.HapticFeedback.selectionChanged();
+      else if (kind === "error" || kind === "success" || kind === "warning") tg.HapticFeedback.notificationOccurred(kind);
+      else tg.HapticFeedback.impactOccurred(kind || "light");
+    } catch (e) {}
+  }
+
+  function openExternal(url) {
+    haptic("light");
+    if (!url) return;
+    try {
+      if (tg && tg.openLink) { tg.openLink(url, { try_instant_view: false }); return; }
+    } catch (e) {}
+    window.open(url, "_blank", "noopener");
+  }
+
+  // ---------- Pamięć (localStorage bywa zablokowany) ----------
+  function load(key) { try { return window.localStorage.getItem(key); } catch (e) { return null; } }
+  function save(key, value) { try { window.localStorage.setItem(key, value); } catch (e) {} }
+
+  // ---------- Adresy paneli ----------
+  function isPrivateHost(h) {
+    h = String(h || "").toLowerCase().replace(/^\[|\]$/g, "");
+    if (h === "localhost" || h === "::1" || /\.(localhost|local|lan)$/.test(h)) return true;
+    var m = h.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+    if (!m) return false;
+    var a = +m[1], b = +m[2];
+    return a === 127 || a === 10 || (a === 192 && b === 168) ||
+      (a === 172 && b >= 16 && b <= 31) || (a === 100 && b >= 64 && b <= 127);
+  }
+
+  function checkUrl(raw) {
+    if (!raw) return { state: "missing" };
+    var u;
+    try { u = new URL(raw); } catch (e) { return { state: "invalid", raw: raw }; }
+    if (u.username || u.password) return { state: "invalid", raw: raw };
+    if (u.protocol === "https:") return { state: "ok", url: u.href };
+    if (u.protocol === "http:" && isPrivateHost(u.hostname)) {
+      // Strona Mini App jest po HTTPS — przeglądarka zablokuje ramkę http:// (mixed content).
+      if (location.protocol === "https:") return { state: "mixed", url: u.href };
+      return { state: "ok", url: u.href };
+    }
+    return { state: "invalid", raw: raw };
+  }
+
+  var params = new URLSearchParams(location.search);
+  function panelRaw(tab) {
+    var fromQuery = params.get(TABS[tab].param);
+    if (fromQuery) return fromQuery;
+    return (SERVER_CONFIG && SERVER_CONFIG[tab]) || "";
+  }
+  var panels = {};
+  Object.keys(TABS).forEach(function (tab) { panels[tab] = checkUrl(panelRaw(tab)); });
+
+  // ---------- Widoki ----------
+  var stage = document.getElementById("stage");
+  var seg = document.getElementById("seg");
+  var btnReload = document.getElementById("reload");
+  var btnOpen = document.getElementById("open");
+  var panes = {};
+
+  function el(tag, attrs, children) {
+    var node = document.createElement(tag);
+    if (attrs) Object.keys(attrs).forEach(function (k) {
+      if (k === "text") node.textContent = attrs[k];
+      else if (k === "class") node.className = attrs[k];
+      else node.setAttribute(k, attrs[k]);
+    });
+    (children || []).forEach(function (c) { if (c) node.appendChild(typeof c === "string" ? document.createTextNode(c) : c); });
+    return node;
+  }
+
+  function skeleton() {
+    return el("div", { class: "skeleton", "aria-hidden": "true" }, [
+      el("div", { class: "sk h" }), el("div", { class: "sk w90" }), el("div", { class: "sk w80" }),
+      el("div", { class: "sk card" }), el("div", { class: "sk w60" }), el("div", { class: "sk w80" }),
+      el("div", { class: "sk card" }), el("div", { class: "sk w90" })
+    ]);
+  }
+
+  function exampleLink() {
+    var base = location.origin && location.origin !== "null" ? location.origin + location.pathname : "https://twoj-host/";
+    return base + "?tars=https://tars.example.com&zrobsite=https://panel.zrobsite.pl";
+  }
+
+  function emptyState(tab) {
+    var info = panels[tab], name = TABS[tab].label, kids;
+    if (info.state === "mixed") {
+      var b = el("button", { class: "btn", type: "button", text: "Otwórz w przeglądarce" });
+      b.addEventListener("click", function () { openExternal(info.url); });
+      kids = [
+        el("div", { class: "glyph", text: "🔒" }),
+        el("h1", { text: "Panel " + name + " działa po HTTP" }),
+        el("p", { text: "Telegram otwiera Mini App przez HTTPS, więc nie może pokazać w środku panelu z adresu http://. Wystaw panel przez Cloudflare Tunnel lub ngrok (dostaniesz adres https://) albo otwórz go w przeglądarce." }),
+        el("div", null, [b])
+      ];
+    } else {
+      var title = info.state === "invalid" ? "Nieprawidłowy adres panelu " + name : "Brak adresu panelu " + name;
+      var lead = info.state === "invalid"
+        ? "Adres musi zaczynać się od https:// (albo http:// w sieci lokalnej, np. localhost lub 192.168.x.x)."
+        : "Mini App nie wie jeszcze, gdzie działa panel " + name + ". Wystarczy dopisać jego adres do linku.";
+      kids = [
+        el("div", { class: "glyph", text: info.state === "invalid" ? "⚠️" : TABS[tab].glyph }),
+        el("h1", { text: title }),
+        el("p", { text: lead }),
+        info.state === "invalid" ? el("p", null, [el("code", { text: info.raw })]) : null,
+        el("ol", null, [
+          el("li", null, [el("b", { text: "Wystaw panel przez HTTPS" }), " — Telegram tego wymaga. Lokalny panel udostępnisz np. przez Cloudflare Tunnel lub ngrok."]),
+          el("li", null, [el("b", { text: "Dodaj adres do linku Mini App" }), " (w BotFather lub w main_menu(...)):", el("code", { text: exampleLink() })]),
+          el("li", null, [el("b", { text: "Otwórz Mini App ponownie" }), " — ostatnio wybrana zakładka zostanie zapamiętana."])
+        ])
+      ];
+    }
+    return el("div", { class: "empty" }, kids);
+  }
+
+  function buildPane(tab) {
+    var info = panels[tab];
+    var pane = el("section", { class: "pane", role: "tabpanel", "aria-label": TABS[tab].label });
+    pane.dataset.tab = tab;
+    if (info.state !== "ok") {
+      pane.appendChild(emptyState(tab));
+      pane.classList.add("loaded");
+      return pane;
+    }
+    var frame = el("iframe", {
+      title: "Panel " + TABS[tab].label,
+      referrerpolicy: "no-referrer",
+      allow: "clipboard-read; clipboard-write; fullscreen"
+    });
+    var openBtn = el("button", { class: "btn", type: "button", text: "Otwórz w przeglądarce" });
+    openBtn.addEventListener("click", function () { openExternal(info.url); });
+    var close = el("button", { class: "x", type: "button", "aria-label": "Zamknij", text: "×" });
+    close.addEventListener("click", function () { pane.classList.remove("slow"); haptic("light"); });
+    var toast = el("div", { class: "toast", role: "status" }, [
+      el("p", { text: "Panel długo się wczytuje albo nie pozwala na wyświetlanie w ramce (X-Frame-Options)." }),
+      openBtn, close
+    ]);
+    pane.appendChild(skeleton());
+    pane.appendChild(frame);
+    pane.appendChild(toast);
+    pane._frame = frame;
+    frame.addEventListener("load", function () {
+      if (!frame.getAttribute("src")) return;
+      clearTimeout(pane._slow);
+      pane.classList.add("loaded");
+      pane.classList.remove("slow");
+      // Panel może zweryfikować użytkownika: wysyłamy initData tylko do jego originu.
+      if (tg && tg.initData) {
+        try { frame.contentWindow.postMessage({ type: "tars:init", initData: tg.initData }, new URL(info.url).origin); } catch (e) {}
+      }
+    });
+    startLoad(pane, info.url);
+    return pane;
+  }
+
+  function startLoad(pane, url) {
+    pane.classList.remove("loaded", "slow");
+    clearTimeout(pane._slow);
+    pane._slow = setTimeout(function () {
+      if (!pane.classList.contains("loaded")) pane.classList.add("slow");
+    }, SLOW_MS);
+    pane._frame.setAttribute("src", url);
+  }
+
+  // ---------- Zakładki + BackButton ----------
+  var current = null;
+  var trail = [];
+
+  function updateBack() {
+    if (!tg || !supports("6.1") || !tg.BackButton) return;
+    try { if (trail.length) tg.BackButton.show(); else tg.BackButton.hide(); } catch (e) {}
+  }
+
+  function show(tab, remember) {
+    if (!isTab(tab) || tab === current) return;
+    if (remember && current) trail.push(current);
+    if (trail.length > 20) trail.shift();
+    current = tab;
+    if (!panes[tab]) { panes[tab] = buildPane(tab); stage.appendChild(panes[tab]); }
+    Object.keys(panes).forEach(function (t) { panes[t].classList.toggle("on", t === tab); });
+    seg.dataset.active = tab;
+    Array.prototype.forEach.call(seg.querySelectorAll(".seg-btn"), function (b) {
+      b.setAttribute("aria-selected", b.dataset.tab === tab ? "true" : "false");
+    });
+    var ok = panels[tab].state === "ok";
+    btnReload.disabled = !ok;
+    btnOpen.disabled = !panels[tab].url;
+    document.title = TABS[tab].label;
+    save(STORAGE_KEY, tab);
+    updateBack();
+  }
+
+  seg.addEventListener("click", function (ev) {
+    var b = ev.target.closest(".seg-btn");
+    if (!b || b.dataset.tab === current) return;
+    haptic("select");
+    show(b.dataset.tab, true);
+  });
+
+  btnReload.addEventListener("click", function () {
+    var info = panels[current], pane = panes[current];
+    if (!pane || info.state !== "ok") return;
+    haptic("light");
+    pane._frame.removeAttribute("src");
+    startLoad(pane, info.url);
+  });
+
+  btnOpen.addEventListener("click", function () { openExternal(panels[current] && panels[current].url); });
+
+  if (tg && tg.BackButton && supports("6.1")) {
+    try {
+      tg.BackButton.onClick(function () {
+        haptic("light");
+        var prev = trail.pop();
+        if (prev) show(prev, false);
+        updateBack();
+      });
+    } catch (e) {}
+  }
+
+  // ---------- Start ----------
+  var startParam = tg && tg.initDataUnsafe && tg.initDataUnsafe.start_param;
+  var first = [params.get("tab"), startParam, load(STORAGE_KEY), "tars"].filter(isTab)[0];
+  show(first, false);
+})();
+</script>
+</body>
+</html>

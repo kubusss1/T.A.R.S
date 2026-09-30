@@ -1,0 +1,21 @@
+{
+  "sites": [
+    {
+      "name": "Piekarnia Kowalski",
+      "url": "https://piekarnia-kowalski.pl",
+      "key": "WKLEJ_KLUCZ_Z_USTAWIENIA_TARS_BRIDGE"
+    },
+    {
+      "name": "Gabinet Zdrowie+",
+      "url": "https://gabinet-zdrowie.pl",
+      "key": "WKLEJ_KLUCZ_Z_USTAWIENIA_TARS_BRIDGE"
+    },
+    {
+      "name": "Strona bez ładnych bezpośrednich odnośników",
+      "url": "https://przyklad.pl",
+      "key": "WKLEJ_KLUCZ_Z_USTAWIENIA_TARS_BRIDGE",
+      "api_base": "https://przyklad.pl/?rest_route=/tars/v1",
+      "enabled": false
+    }
+  ]
+}

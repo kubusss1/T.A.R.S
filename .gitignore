@@ -1,0 +1,23 @@
+# Sekrety - nigdy do repo
+.env
+*.env
+sites.json
+*.key
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# Node
+node_modules/
+
+# Inne
+*.log
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Dane lokalne
+seo_history/
